@@ -1,6 +1,6 @@
 workflows:
    android-app:
-     name: Build APK
+     name: Build APK + AAB
      max_build_duration: 30
      environment:
        flutter: stable
@@ -10,9 +10,11 @@ workflows:
      scripts:
        # Získať všetky Flutter dependencies
        - flutter pub get
-       # Build APK len pre arm64 (bez ARMv7, aby sa predišlo Java heap
-space)
+       # Build release APK len pre arm64
        - flutter build apk --release
+       # Build release App Bundle (AAB) pre Google Play
+       - flutter build appbundle --release
      artifacts:
-       # Výstupný APK súbor
+       # Výstupné súbory
        - build/app/outputs/flutter-apk/app-release.apk
+       - build/app/outputs/bundle/release/app-release.aab

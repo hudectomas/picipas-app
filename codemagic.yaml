@@ -1,20 +1,17 @@
 workflows:
-   android-app:
-     name: Build APK + AAB
-     max_build_duration: 30
-     environment:
-       flutter: stable
-       vars:
-         # Zvýšenie pamäte pre Gradle
-         GRADLE_OPTS: "-Xmx4096m -XX:+HeapDumpOnOutOfMemoryError"
-     scripts:
-       # Získať všetky Flutter dependencies
-       - flutter pub get
-       # Build release APK len pre arm64
-       - flutter build apk --release
-       # Build release App Bundle (AAB) pre Google Play
-       - flutter build appbundle --release
-     artifacts:
-       # Výstupné súbory
-       - build/app/outputs/flutter-apk/app-release.apk
-       - build/app/outputs/bundle/release/app-release.aab
+  android-app:
+    name: Build APK
+    max_build_duration: 30
+    environment:
+      flutter: stable
+      vars:
+        # Zvýšenie pamäte pre Gradle
+        GRADLE_OPTS: "-Xmx4096m -XX:+HeapDumpOnOutOfMemoryError"
+    scripts:
+      # Získať všetky Flutter dependencies
+      - flutter pub get
+      # Build release APK len pre arm64
+      - flutter build apk --release
+    artifacts:
+      # Výstupné súbory
+      - build/app/outputs/flutter-apk/app-release.apk

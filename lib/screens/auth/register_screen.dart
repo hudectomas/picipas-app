@@ -1,0 +1,453 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+import '../../providers/auth_provider.dart';
+import '../customer/home_screen.dart';
+import '../staff/staff_home_screen.dart';
+import '../admin/admin_home_screen.dart';
+
+class RegisterScreen extends StatefulWidget {
+  const RegisterScreen({super.key});
+
+  @override
+  State<RegisterScreen> createState() => _RegisterScreenState();
+}
+
+class _RegisterScreenState extends State<RegisterScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _surnameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _passwordConfirmationController = TextEditingController();
+  int? _selectedDay;
+  int? _selectedMonth;
+  int? _selectedYear;
+  DateTime? _dateOfBirth;
+  bool _obscurePassword = true;
+  bool _obscurePasswordConfirmation = true;
+  bool _ageConfirmed = false;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _surnameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _passwordConfirmationController.dispose();
+    super.dispose();
+  }
+
+  void _updateDateOfBirth() {
+    if (_selectedDay != null && _selectedMonth != null && _selectedYear != null) {
+      try {
+        // Validácia počtu dní v mesiaci
+        final daysInMonth = DateTime(_selectedYear!, _selectedMonth! + 1, 0).day;
+        if (_selectedDay! > daysInMonth) {
+          setState(() {
+            _dateOfBirth = null;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Neplatný dátum - tento mesiac má iba $daysInMonth dní')),
+          );
+          return;
+        }
+
+        final date = DateTime(_selectedYear!, _selectedMonth!, _selectedDay!);
+        if (date.isBefore(DateTime.now()) || date.isAtSameMomentAs(DateTime.now())) {
+          setState(() {
+            _dateOfBirth = date;
+            final age = DateTime.now().difference(date).inDays ~/ 365;
+            if (age < 18) {
+              _ageConfirmed = false;
+            }
+          });
+        } else {
+          setState(() {
+            _dateOfBirth = null;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Dátum narodenia nemôže byť v budúcnosti')),
+          );
+        }
+      } catch (e) {
+        setState(() {
+          _dateOfBirth = null;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Neplatný dátum')),
+        );
+      }
+    } else {
+      setState(() {
+        _dateOfBirth = null;
+      });
+    }
+  }
+
+  Future<void> _register() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_dateOfBirth == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vyberte dátum narodenia')),
+      );
+      return;
+    }
+    if (!_ageConfirmed) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Musíte potvrdiť, že máte aspoň 18 rokov')),
+      );
+      return;
+    }
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final success = await authProvider.register(
+      _nameController.text.trim(),
+      _surnameController.text.trim(),
+      _emailController.text.trim(),
+      _passwordController.text,
+      _passwordConfirmationController.text,
+      _dateOfBirth!,
+    );
+
+    if (!mounted) return;
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Registrácia úspešná! Skontrolujte email pre verifikáciu.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      final user = authProvider.user!;
+      if (user.isAdmin) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const AdminHomeScreen()),
+        );
+      } else if (user.isObsluha) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const StaffHomeScreen()),
+        );
+      } else {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const CustomerHomeScreen()),
+        );
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(authProvider.error ?? 'Registrácia zlyhala'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Registrácia'),
+      ),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              const Color(0xFF1A1A1A),
+              const Color(0xFF2D2D2D),
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextFormField(
+                    controller: _nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Meno',
+                      prefixIcon: Icon(Icons.person),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Zadajte meno';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _surnameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Priezvisko',
+                      prefixIcon: Icon(Icons.person_outline),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Zadajte priezvisko';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(
+                      labelText: 'Email',
+                      prefixIcon: Icon(Icons.email),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Zadajte email';
+                      }
+                      if (!value.contains('@')) {
+                        return 'Zadajte platný email';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Dátum narodenia',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white70,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      // Deň
+                      Expanded(
+                        child: DropdownButtonFormField<int>(
+                          value: _selectedDay,
+                          decoration: const InputDecoration(
+                            labelText: 'Deň',
+                            prefixIcon: Icon(Icons.calendar_today),
+                          ),
+                          items: List.generate(31, (index) => index + 1)
+                              .map((day) => DropdownMenuItem(
+                                    value: day,
+                                    child: Text('$day'),
+                                  ))
+                              .toList(),
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedDay = value;
+                            });
+                            _updateDateOfBirth();
+                          },
+                          validator: (value) {
+                            if (value == null) {
+                              return 'Vyberte deň';
+                            }
+                            return null;
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      // Mesiac
+                      Expanded(
+                        child: DropdownButtonFormField<int>(
+                          value: _selectedMonth,
+                          decoration: const InputDecoration(
+                            labelText: 'Mesiac',
+                          ),
+                          items: [
+                            {'value': 1, 'label': 'Január'},
+                            {'value': 2, 'label': 'Február'},
+                            {'value': 3, 'label': 'Marec'},
+                            {'value': 4, 'label': 'Apríl'},
+                            {'value': 5, 'label': 'Máj'},
+                            {'value': 6, 'label': 'Jún'},
+                            {'value': 7, 'label': 'Júl'},
+                            {'value': 8, 'label': 'August'},
+                            {'value': 9, 'label': 'September'},
+                            {'value': 10, 'label': 'Október'},
+                            {'value': 11, 'label': 'November'},
+                            {'value': 12, 'label': 'December'},
+                          ]
+                              .map((item) => DropdownMenuItem(
+                                    value: item['value'] as int,
+                                    child: Text(item['label'] as String),
+                                  ))
+                              .toList(),
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedMonth = value;
+                            });
+                            _updateDateOfBirth();
+                          },
+                          validator: (value) {
+                            if (value == null) {
+                              return 'Vyberte mesiac';
+                            }
+                            return null;
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      // Rok
+                      Expanded(
+                        child: DropdownButtonFormField<int>(
+                          value: _selectedYear,
+                          decoration: const InputDecoration(
+                            labelText: 'Rok',
+                          ),
+                          items: List.generate(
+                                  DateTime.now().year - 1950 + 1,
+                                  (index) => DateTime.now().year - index)
+                              .map((year) => DropdownMenuItem(
+                                    value: year,
+                                    child: Text('$year'),
+                                  ))
+                              .toList(),
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedYear = value;
+                            });
+                            _updateDateOfBirth();
+                          },
+                          validator: (value) {
+                            if (value == null) {
+                              return 'Vyberte rok';
+                            }
+                            return null;
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (_dateOfBirth != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'Vybraný dátum: ${DateFormat('dd.MM.yyyy').format(_dateOfBirth!)}',
+                      style: const TextStyle(
+                        color: Colors.green,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                  if (_dateOfBirth != null) ...[
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Checkbox(
+                          value: _ageConfirmed,
+                          onChanged: (value) {
+                            setState(() {
+                              _ageConfirmed = value ?? false;
+                            });
+                          },
+                        ),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _ageConfirmed = !_ageConfirmed;
+                              });
+                            },
+                            child: const Text(
+                              'Potvrdzujem, že mám aspoň 18 rokov',
+                              style: TextStyle(fontSize: 14),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _passwordController,
+                    obscureText: _obscurePassword,
+                    decoration: InputDecoration(
+                      labelText: 'Heslo',
+                      prefixIcon: const Icon(Icons.lock),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _obscurePassword = !_obscurePassword;
+                          });
+                        },
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Zadajte heslo';
+                      }
+                      if (value.length < 8) {
+                        return 'Heslo musí mať aspoň 8 znakov';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _passwordConfirmationController,
+                    obscureText: _obscurePasswordConfirmation,
+                    decoration: InputDecoration(
+                      labelText: 'Potvrdenie hesla',
+                      prefixIcon: const Icon(Icons.lock_outline),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePasswordConfirmation ? Icons.visibility : Icons.visibility_off,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _obscurePasswordConfirmation = !_obscurePasswordConfirmation;
+                          });
+                        },
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Potvrďte heslo';
+                      }
+                      if (value != _passwordController.text) {
+                        return 'Heslá sa nezhodujú';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 32),
+                  Consumer<AuthProvider>(
+                    builder: (context, authProvider, _) {
+                      return ElevatedButton(
+                        onPressed: authProvider.isLoading ? null : _register,
+                        child: authProvider.isLoading
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                ),
+                              )
+                            : const Text('Registrovať sa'),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+
+

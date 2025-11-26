@@ -26,7 +26,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   DateTime? _dateOfBirth;
   bool _obscurePassword = true;
   bool _obscurePasswordConfirmation = true;
-  bool _ageConfirmed = false;
 
   @override
   void dispose() {
@@ -57,10 +56,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
         if (date.isBefore(DateTime.now()) || date.isAtSameMomentAs(DateTime.now())) {
           setState(() {
             _dateOfBirth = date;
-            final age = DateTime.now().difference(date).inDays ~/ 365;
-            if (age < 18) {
-              _ageConfirmed = false;
-            }
           });
         } else {
           setState(() {
@@ -85,6 +80,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
+  int _calculateAge(DateTime birthDate) {
+    final now = DateTime.now();
+    int age = now.year - birthDate.year;
+    if (now.month < birthDate.month || 
+        (now.month == birthDate.month && now.day < birthDate.day)) {
+      age--;
+    }
+    return age;
+  }
+
   Future<void> _register() async {
     if (!_formKey.currentState!.validate()) return;
     if (_dateOfBirth == null) {
@@ -93,9 +98,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
       return;
     }
-    if (!_ageConfirmed) {
+    
+    // Automatická validácia veku
+    final age = _calculateAge(_dateOfBirth!);
+    if (age < 18) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Musíte potvrdiť, že máte aspoň 18 rokov')),
+        const SnackBar(
+          content: Text('Na registráciu musíte mať aspoň 18 rokov'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
@@ -113,26 +124,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!mounted) return;
 
     if (success) {
+      if (!mounted) return;
+      
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Registrácia úspešná! Skontrolujte email pre verifikáciu.'),
+          content: Text('Registrácia úspešná! Vitajte v Picí pas.'),
           backgroundColor: Colors.green,
         ),
       );
+      
       final user = authProvider.user!;
-      if (user.isAdmin) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const AdminHomeScreen()),
-        );
-      } else if (user.isObsluha) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const StaffHomeScreen()),
-        );
-      } else {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const CustomerHomeScreen()),
-        );
-      }
+      // Navigácia na príslušnú domovskú obrazovku
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (_) => user.isAdmin 
+            ? const AdminHomeScreen()
+            : user.isObsluha 
+              ? const StaffHomeScreen()
+              : const CustomerHomeScreen(),
+        ),
+        (route) => false, // Odstrániť všetky predchádzajúce obrazovky
+      );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -229,14 +241,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       Expanded(
                         child: DropdownButtonFormField<int>(
                           value: _selectedDay,
+                          dropdownColor: const Color(0xFF2D2D2D),
+                          style: const TextStyle(color: Colors.white),
                           decoration: const InputDecoration(
                             labelText: 'Deň',
-                            prefixIcon: Icon(Icons.calendar_today),
+                            labelStyle: TextStyle(color: Colors.white70),
+                            prefixIcon: Icon(Icons.calendar_today, color: Colors.white70),
                           ),
                           items: List.generate(31, (index) => index + 1)
                               .map((day) => DropdownMenuItem(
                                     value: day,
-                                    child: Text('$day'),
+                                    child: Text('$day', style: const TextStyle(color: Colors.white)),
                                   ))
                               .toList(),
                           onChanged: (value) {
@@ -247,7 +262,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           },
                           validator: (value) {
                             if (value == null) {
-                              return 'Vyberte deň';
+                              return 'Vyberte';
                             }
                             return null;
                           },
@@ -256,10 +271,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       const SizedBox(width: 12),
                       // Mesiac
                       Expanded(
+                        flex: 2,
                         child: DropdownButtonFormField<int>(
                           value: _selectedMonth,
+                          dropdownColor: const Color(0xFF2D2D2D),
+                          style: const TextStyle(color: Colors.white),
                           decoration: const InputDecoration(
                             labelText: 'Mesiac',
+                            labelStyle: TextStyle(color: Colors.white70),
                           ),
                           items: [
                             {'value': 1, 'label': 'Január'},
@@ -277,7 +296,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ]
                               .map((item) => DropdownMenuItem(
                                     value: item['value'] as int,
-                                    child: Text(item['label'] as String),
+                                    child: Text(item['label'] as String, style: const TextStyle(color: Colors.white)),
                                   ))
                               .toList(),
                           onChanged: (value) {
@@ -288,7 +307,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           },
                           validator: (value) {
                             if (value == null) {
-                              return 'Vyberte mesiac';
+                              return 'Vyberte';
                             }
                             return null;
                           },
@@ -299,15 +318,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       Expanded(
                         child: DropdownButtonFormField<int>(
                           value: _selectedYear,
+                          dropdownColor: const Color(0xFF2D2D2D),
+                          style: const TextStyle(color: Colors.white),
                           decoration: const InputDecoration(
                             labelText: 'Rok',
+                            labelStyle: TextStyle(color: Colors.white70),
                           ),
                           items: List.generate(
                                   DateTime.now().year - 1950 + 1,
                                   (index) => DateTime.now().year - index)
                               .map((year) => DropdownMenuItem(
                                     value: year,
-                                    child: Text('$year'),
+                                    child: Text('$year', style: const TextStyle(color: Colors.white)),
                                   ))
                               .toList(),
                           onChanged: (value) {
@@ -318,7 +340,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           },
                           validator: (value) {
                             if (value == null) {
-                              return 'Vyberte rok';
+                              return 'Vyberte';
                             }
                             return null;
                           },
@@ -328,40 +350,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   if (_dateOfBirth != null) ...[
                     const SizedBox(height: 8),
-                    Text(
-                      'Vybraný dátum: ${DateFormat('dd.MM.yyyy').format(_dateOfBirth!)}',
-                      style: const TextStyle(
-                        color: Colors.green,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                  if (_dateOfBirth != null) ...[
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Checkbox(
-                          value: _ageConfirmed,
-                          onChanged: (value) {
-                            setState(() {
-                              _ageConfirmed = value ?? false;
-                            });
-                          },
-                        ),
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                _ageConfirmed = !_ageConfirmed;
-                              });
-                            },
-                            child: const Text(
-                              'Potvrdzujem, že mám aspoň 18 rokov',
-                              style: TextStyle(fontSize: 14),
+                    Builder(
+                      builder: (context) {
+                        final age = _calculateAge(_dateOfBirth!);
+                        final isAdult = age >= 18;
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Vybraný dátum: ${DateFormat('dd.MM.yyyy').format(_dateOfBirth!)}',
+                              style: TextStyle(
+                                color: isAdult ? Colors.green : Colors.red,
+                                fontSize: 14,
+                              ),
                             ),
-                          ),
-                        ),
-                      ],
+                            const SizedBox(height: 4),
+                            Text(
+                              isAdult 
+                                ? 'Vek: $age rokov ✓'
+                                : 'Vek: $age rokov - Na registráciu musíte mať aspoň 18 rokov',
+                              style: TextStyle(
+                                color: isAdult ? Colors.green : Colors.red,
+                                fontSize: 12,
+                                fontWeight: isAdult ? FontWeight.normal : FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ],
                   const SizedBox(height: 16),

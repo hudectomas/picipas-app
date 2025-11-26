@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user.dart';
 import '../services/api_service.dart';
+import '../services/offline_service.dart';
 import 'dart:convert';
 
 class AuthProvider with ChangeNotifier {
@@ -12,6 +14,40 @@ class AuthProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
   bool get isAuthenticated => _user != null;
+
+  // Uložiť používateľa do cache (pre offline režim)
+  Future<void> _cacheUser(User user) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('cached_user', jsonEncode({
+      'id': user.id,
+      'name': user.name,
+      'surname': user.surname,
+      'email': user.email,
+      'role': user.role,
+      'qr_code': user.qrCode,
+      'total_points': user.totalPoints,
+      'date_of_birth': user.dateOfBirth?.toIso8601String(),
+    }));
+  }
+
+  // Načítať používateľa z cache
+  Future<User?> _getCachedUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    final cached = prefs.getString('cached_user');
+    if (cached == null) return null;
+    try {
+      final data = jsonDecode(cached) as Map<String, dynamic>;
+      return User.fromJson(data);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Vymazať cache používateľa
+  Future<void> _clearCachedUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('cached_user');
+  }
 
   Future<bool> login(String email, String password) async {
     _isLoading = true;
@@ -29,6 +65,11 @@ class AuthProvider with ChangeNotifier {
       if (response.statusCode == 200) {
         await ApiService.saveToken(data['token']);
         _user = User.fromJson(data['user']);
+        await _cacheUser(_user!);
+        
+        // Stiahnuť údaje pre offline režim
+        await _downloadOfflineData();
+        
         _isLoading = false;
         _error = null;
         notifyListeners();
@@ -45,6 +86,35 @@ class AuthProvider with ChangeNotifier {
       _isLoading = false;
       notifyListeners();
       return false;
+    }
+  }
+
+  // Stiahnuť údaje pre offline režim
+  Future<void> _downloadOfflineData() async {
+    if (_user == null) return;
+    
+    final offlineService = OfflineService();
+    
+    try {
+      // Stiahnuť nápoje
+      final drinksResponse = await ApiService.get('/drinks');
+      if (drinksResponse.statusCode == 200) {
+        final data = jsonDecode(drinksResponse.body);
+        final drinks = (data['drinks'] as List).cast<Map<String, dynamic>>();
+        await offlineService.cacheDrinks(drinks);
+      }
+      
+      // Ak je obsluha alebo admin, stiahnuť zákazníkov
+      if (_user!.isObsluha || _user!.isAdmin) {
+        final customersResponse = await ApiService.get('/points/customers');
+        if (customersResponse.statusCode == 200) {
+          final data = jsonDecode(customersResponse.body);
+          final users = (data['users'] as List).cast<Map<String, dynamic>>();
+          await offlineService.cacheUsers(users);
+        }
+      }
+    } catch (e) {
+      // Ignorovať chyby - offline údaje nie sú kritické
     }
   }
 
@@ -68,6 +138,11 @@ class AuthProvider with ChangeNotifier {
       if (response.statusCode == 201) {
         await ApiService.saveToken(data['token']);
         _user = User.fromJson(data['user']);
+        await _cacheUser(_user!);
+        
+        // Stiahnuť údaje pre offline režim
+        await _downloadOfflineData();
+        
         _isLoading = false;
         notifyListeners();
         return true;
@@ -96,6 +171,7 @@ class AuthProvider with ChangeNotifier {
       // Ignore errors
     }
     await ApiService.removeToken();
+    await _clearCachedUser();
     _user = null;
     notifyListeners();
   }
@@ -113,15 +189,22 @@ class AuthProvider with ChangeNotifier {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         _user = User.fromJson(data['user']);
+        await _cacheUser(_user!);
+        notifyListeners();
+      } else if (response.statusCode == 401) {
+        // Token je neplatný - odhlásiť
+        await ApiService.removeToken();
+        await _clearCachedUser();
+        _user = null;
         notifyListeners();
       } else {
-        await ApiService.removeToken();
-        _user = null;
+        // Iná chyba (napr. server nedostupný) - skúsiť načítať z cache
+        _user = await _getCachedUser();
         notifyListeners();
       }
     } catch (e) {
-      await ApiService.removeToken();
-      _user = null;
+      // Offline - skúsiť načítať z cache
+      _user = await _getCachedUser();
       notifyListeners();
     }
   }

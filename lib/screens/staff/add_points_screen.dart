@@ -76,6 +76,16 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
     return (_selectedDrink!.alcoholPercentage * 2.5 * _quantity).round();
   }
 
+  String _formatDrinkInfo(Drink drink) {
+    final parts = <String>[];
+    parts.add('${drink.alcoholPercentage}%');
+    parts.add('${drink.pointsPerUnit} bodov/${drink.unit}');
+    if (drink.volumeMl != null) {
+      parts.add('${drink.volumeMl}ml');
+    }
+    return parts.join(' • ');
+  }
+
   Future<void> _addPoints() async {
     if (_selectedDrink == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -107,6 +117,7 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
               const SnackBar(
                 content: Text('Body boli úspešne pridané'),
                 backgroundColor: Colors.green,
+                duration: Duration(seconds: 2),
               ),
             );
             Navigator.of(context).pop();
@@ -134,9 +145,9 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Body uložené offline. Synchronizujú sa automaticky keď sa internet vráti.'),
+              content: Text('Body uložené offline'),
               backgroundColor: Colors.orange,
-              duration: Duration(seconds: 3),
+              duration: Duration(seconds: 2),
             ),
           );
           Navigator.of(context).pop();
@@ -156,9 +167,9 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Body uložené offline. Synchronizujú sa automaticky.'),
+                content: Text('Body uložené offline'),
                 backgroundColor: Colors.orange,
-                duration: Duration(seconds: 3),
+                duration: Duration(seconds: 2),
               ),
             );
             Navigator.of(context).pop();
@@ -196,139 +207,227 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
       appBar: AppBar(
         title: const Text('Pridať body'),
       ),
-      body: _drinksLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${widget.customer['name']} ${widget.customer['surname']}',
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              const Color(0xFF1A1A1A),
+              const Color(0xFF2D2D2D),
+            ],
+          ),
+        ),
+        child: _drinksLoading
+            ? const Center(child: CircularProgressIndicator(color: Color(0xFFFF6B35)))
+            : SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Zákazník info
+                    Card(
+                      color: const Color(0xFF3D3D3D),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${widget.customer['name']} ${widget.customer['surname']}',
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'ID: ${widget.customer['id']}',
-                            style: const TextStyle(color: Colors.white70),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Aktuálne body: ${widget.customer['total_points']}',
-                            style: const TextStyle(
-                              fontSize: 18,
+                            const SizedBox(height: 8),
+                            Text(
+                              'ID: ${widget.customer['id']}',
+                              style: const TextStyle(color: Colors.white70),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Aktuálne body: ${widget.customer['total_points']}',
+                              style: const TextStyle(
+                                fontSize: 18,
+                                color: Color(0xFFFF6B35),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    
+                    // Nadpis nápoje
+                    const Text(
+                      'Vyberte nápoj',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Zoznam nápojov
+                    ..._drinks.map((drink) {
+                      final isSelected = _selectedDrink?.id == drink.id;
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        color: isSelected
+                            ? const Color(0xFFFF6B35).withValues(alpha: 0.3)
+                            : const Color(0xFF3D3D3D),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: isSelected 
+                              ? const BorderSide(color: Color(0xFFFF6B35), width: 2)
+                              : BorderSide.none,
+                        ),
+                        child: ListTile(
+                          leading: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFF6B35).withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(
+                              Icons.local_bar,
                               color: Color(0xFFFF6B35),
-                              fontWeight: FontWeight.bold,
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Vyberte nápoj',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  ..._drinks.map((drink) {
-                    final isSelected = _selectedDrink?.id == drink.id;
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      color: isSelected
-                          ? const Color(0xFFFF6B35).withValues(alpha: 0.2)
-                          : null,
-                      child: ListTile(
-                        leading: const Icon(Icons.local_bar),
-                        title: Text(drink.name),
-                        subtitle: Text(
-                          '${drink.alcoholPercentage}% • ${drink.pointsPerUnit} bodov/${drink.unit}',
-                        ),
-                        trailing: isSelected
-                            ? const Icon(Icons.check_circle, color: Color(0xFFFF6B35))
-                            : null,
-                        onTap: () {
-                          setState(() {
-                            _selectedDrink = drink;
-                          });
-                        },
-                      ),
-                    );
-                  }),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Množstvo',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      IconButton(
-                        onPressed: _quantity > 1
-                            ? () {
-                                setState(() {
-                                  _quantity--;
-                                });
-                              }
-                            : null,
-                        icon: const Icon(Icons.remove_circle),
-                      ),
-                      Text(
-                        '$_quantity',
-                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                      ),
-                      IconButton(
-                        onPressed: () {
-                          setState(() {
-                            _quantity++;
-                          });
-                        },
-                        icon: const Icon(Icons.add_circle),
-                      ),
-                      const Spacer(),
-                      Text(
-                        '${_calculatePoints()} bodov',
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFFFF6B35),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 32),
-                  ElevatedButton(
-                    onPressed: _isLoading ? null : _addPoints,
-                    child: _isLoading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          title: Text(
+                            drink.name,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              fontSize: 16,
                             ),
-                          )
-                        : const Text('Pridať body'),
-                  ),
-                ],
+                          ),
+                          subtitle: Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              _formatDrinkInfo(drink),
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                          trailing: isSelected
+                              ? const Icon(Icons.check_circle, color: Color(0xFFFF6B35), size: 28)
+                              : const Icon(Icons.circle_outlined, color: Colors.white38, size: 28),
+                          onTap: () {
+                            setState(() {
+                              _selectedDrink = drink;
+                            });
+                          },
+                        ),
+                      );
+                    }),
+                    const SizedBox(height: 24),
+                    
+                    // Množstvo
+                    const Text(
+                      'Množstvo',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Card(
+                      color: const Color(0xFF3D3D3D),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          children: [
+                            IconButton(
+                              onPressed: _quantity > 1
+                                  ? () {
+                                      setState(() {
+                                        _quantity--;
+                                      });
+                                    }
+                                  : null,
+                              icon: const Icon(Icons.remove_circle, size: 36),
+                              color: const Color(0xFFFF6B35),
+                              disabledColor: Colors.grey,
+                            ),
+                            const SizedBox(width: 16),
+                            Text(
+                              '$_quantity',
+                              style: const TextStyle(
+                                fontSize: 32,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            IconButton(
+                              onPressed: () {
+                                setState(() {
+                                  _quantity++;
+                                });
+                              },
+                              icon: const Icon(Icons.add_circle, size: 36),
+                              color: const Color(0xFFFF6B35),
+                            ),
+                            const Spacer(),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFF6B35).withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                '${_calculatePoints()} bodov',
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFFFF6B35),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                    
+                    // Pridať body button
+                    SizedBox(
+                      height: 56,
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : _addPoints,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFFF6B35),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: _isLoading
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                ),
+                              )
+                            : const Text(
+                                'Pridať body',
+                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
+      ),
     );
   }
 }
-

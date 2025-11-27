@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../services/api_service.dart';
 import 'register_screen.dart';
 import '../customer/home_screen.dart';
 import '../staff/staff_home_screen.dart';
@@ -18,6 +19,8 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _showForgotPassword = false;
+  bool _isResettingPassword = false;
 
   @override
   void dispose() {
@@ -53,9 +56,69 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     } else {
+      // Zobraziť možnosť zabudnutého hesla po neúspešnom prihlásení
+      setState(() {
+        _showForgotPassword = true;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(authProvider.error ?? 'Prihlásenie zlyhalo'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _resetPassword() async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty || !email.contains('@')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Zadajte platnú emailovú adresu'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isResettingPassword = true;
+    });
+
+    try {
+      final response = await ApiService.post('/forgot-password', {
+        'email': email,
+      }, includeAuth: false);
+
+      if (!mounted) return;
+
+      setState(() {
+        _isResettingPassword = false;
+      });
+
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Odkaz na obnovenie hesla bol odoslaný na váš email'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Email nebol nájdený v systéme'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isResettingPassword = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Chyba pri odosielaní. Skúste to neskôr.'),
           backgroundColor: Colors.red,
         ),
       );
@@ -186,6 +249,25 @@ class _LoginScreenState extends State<LoginScreen> {
                         );
                       },
                     ),
+                    if (_showForgotPassword) ...[
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: _isResettingPassword ? null : _resetPassword,
+                        child: _isResettingPassword
+                            ? const SizedBox(
+                                height: 16,
+                                width: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF6B35)),
+                                ),
+                              )
+                            : const Text(
+                                'Zabudli ste heslo?',
+                                style: TextStyle(color: Color(0xFFFF6B35)),
+                              ),
+                      ),
+                    ],
                     const SizedBox(height: 16),
                     TextButton(
                       onPressed: () {

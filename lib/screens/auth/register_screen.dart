@@ -245,11 +245,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           value: _selectedDay,
                           dropdownColor: const Color(0xFF2D2D2D),
                           style: const TextStyle(color: Colors.white),
+                          iconEnabledColor: Colors.white70,
                           decoration: const InputDecoration(
                             labelText: 'Deň',
                             labelStyle: TextStyle(color: Colors.white70),
-                            prefixIcon: Icon(Icons.calendar_today, color: Colors.white70),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           ),
+                          selectedItemBuilder: (BuildContext context) {
+                            return List.generate(31, (index) => index + 1)
+                                .map((day) => Center(
+                                      child: Text('$day', style: const TextStyle(color: Colors.white)),
+                                    ))
+                                .toList();
+                          },
                           items: List.generate(31, (index) => index + 1)
                               .map((day) => DropdownMenuItem(
                                     value: day,

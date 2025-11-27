@@ -112,6 +112,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final navigator = Navigator.of(context);
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    
     final success = await authProvider.register(
       _nameController.text.trim(),
       _surnameController.text.trim(),
@@ -123,19 +126,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     if (!mounted) return;
 
-    if (success) {
-      if (!mounted) return;
-      
-      ScaffoldMessenger.of(context).showSnackBar(
+    if (success && authProvider.user != null) {
+      scaffoldMessenger.showSnackBar(
         const SnackBar(
           content: Text('Registrácia úspešná! Vitajte v Picí pas.'),
           backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
         ),
       );
       
       final user = authProvider.user!;
       // Navigácia na príslušnú domovskú obrazovku
-      Navigator.of(context).pushAndRemoveUntil(
+      navigator.pushAndRemoveUntil(
         MaterialPageRoute(
           builder: (_) => user.isAdmin 
             ? const AdminHomeScreen()
@@ -146,7 +148,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         (route) => false, // Odstrániť všetky predchádzajúce obrazovky
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
+      scaffoldMessenger.showSnackBar(
         SnackBar(
           content: Text(authProvider.error ?? 'Registrácia zlyhala'),
           backgroundColor: Colors.red,
